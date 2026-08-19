@@ -51,9 +51,6 @@
         .tab.active { background: var(--accent); color: white; border-color: var(--accent); }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
-        .item-row { display: flex; gap: 8px; align-items: center; margin: 8px 0; padding: 12px; background: var(--bg); border-radius: 8px; }
-        .item-row input { margin: 0; flex: 1; }
-        .item-row button { width: auto; padding: 10px 12px; margin: 0; }
         .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(100px); background: var(--card); color: var(--text); padding: 14px 24px; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); border: 1px solid var(--border); opacity: 0; transition: all 0.3s; z-index: 1000; max-width: 90%; }
         .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
         .toggle-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; }
@@ -63,16 +60,14 @@
         .toggle.on::after { transform: translateX(22px); }
         .hidden { display: none !important; }
         .reminder-badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; margin-left: 6px; }
-        .reminder-3month { background: var(--warning); color: #000; }
-        .reminder-1day { background: var(--danger); color: white; }
-        .reminder-done { background: var(--muted); color: white; }
+        .reminder-3m1d { background: var(--warning); color: #000; }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
             <h1>🛡️ Asisten Garansi Cerdas</h1>
-            <p class="muted">Sistem Rekam Data & Notifikasi Pengingat</p>
+            <p class="muted">Pengingat 3 Bulan 1 Hari dari Tanggal Input</p>
         </header>
 
         <div class="tabs">
@@ -91,10 +86,10 @@
                 <label>Merek / Tipe / Keterangan</label>
                 <input type="text" id="prodBrand" placeholder="Contoh: Laporan Keuangan Agustus">
 
-                <label>Tanggal Mulai / Dibuat</label>
+                <label>📅 Tanggal Pembelian Barang</label>
                 <input type="date" id="purchaseDate">
 
-                <label>Masa Garansi / Jangka Waktu (Bulan)</label>
+                <label>Masa Garansi (Bulan)</label>
                 <input type="number" id="warrantyMonths" placeholder="Contoh: 12" min="1">
 
                 <label>Nomor Nota / Referensi</label>
@@ -110,7 +105,7 @@
         <!-- Tab: Daftar Garansi -->
         <div class="tab-content" id="tab-list">
             <div class="card">
-                <h3>📋 Data Tersimpan</h3>
+                <h3>📋 Data Garansi Tersimpan</h3>
                 <div id="warrantyList" style="margin-top:12px;"></div>
                 <p id="emptyMsg" class="muted">Belum ada data. Silakan tambahkan dulu!</p>
             </div>
@@ -119,9 +114,13 @@
         <!-- Tab: Pengingat -->
         <div class="tab-content" id="tab-reminders">
             <div class="card">
-                <h3>⏰ Status Pengingat</h3>
-                <p class="muted">Pengingat akan muncul saat data berusia: <br>• 3 Bulan (90 hari) <br>• 1 Hari sebelum jatuh tempo</p>
-                <div id="reminderList" style="margin-top:16px;"></div>
+                <h3>⏰ Pengingat Aktif</h3>
+                <p class="muted" style="margin-bottom:12px;">
+                    • <strong>Pengingat Input Ulang</strong>: Saat usia data mencapai <strong>3 bulan 1 hari</strong> dari tanggal diinput di aplikasi<br>
+                    • Hanya muncul untuk data yang <strong>masih dalam masa garansi</strong> (belum habis)<br>
+                    • Tujuannya: mengingatkan untuk input data baru / perbarui data
+                </p>
+                <div id="reminderList"></div>
                 <p id="noReminder" class="muted">Tidak ada pengingat yang aktif saat ini.</p>
                 <button class="warning" onclick="cekSemuaPengingat()" style="margin-top:16px;">🔔 Cek Pengingat Sekarang</button>
             </div>
@@ -136,12 +135,8 @@
                     <div class="toggle" id="notifToggle" onclick="toggleNotif()"></div>
                 </div>
                 <div class="toggle-row">
-                    <span>Pengingat 3 Bulan (90 Hari)</span>
-                    <div class="toggle on" id="toggle3Month" onclick="toggleReminderType('3month')"></div>
-                </div>
-                <div class="toggle-row">
-                    <span>Pengingat 1 Hari Sebelum Jatuh Tempo</span>
-                    <div class="toggle on" id="toggle1Day" onclick="toggleReminderType('1day')"></div>
+                    <span>Pengingat 3 Bulan 1 Hari (dari Tanggal Input)</span>
+                    <div class="toggle on" id="toggleReminder" onclick="toggleReminderSetting()"></div>
                 </div>
                 <button onclick="mintaIzinNotif()" style="margin-top:12px;">Minta Izin Notifikasi</button>
 
@@ -168,10 +163,7 @@
         let warrantyData = JSON.parse(localStorage.getItem('warrantyData')) || [];
         let notifEnabled = localStorage.getItem('notifEnabled') === 'true';
         let isLightMode = localStorage.getItem('lightMode') === 'true';
-        let reminderSettings = JSON.parse(localStorage.getItem('reminderSettings')) || {
-            '3month': true,
-            '1day': true
-        };
+        let reminderEnabled = localStorage.getItem('reminderEnabled') !== 'false';
         let triggeredReminders = JSON.parse(localStorage.getItem('triggeredReminders')) || [];
 
         // === Init ===
@@ -194,7 +186,7 @@
             });
         });
 
-        // === Simpan Data ===
+        // === Simpan Data Garansi ===
         function simpanGaransi() {
             const name = document.getElementById('prodName').value.trim();
             const brand = document.getElementById('prodBrand').value.trim();
@@ -204,23 +196,27 @@
             const notes = document.getElementById('notes').value.trim();
 
             if (!name || !purchaseDate || !months) {
-                tampilkanToast('⚠️ Isi nama, tanggal & jangka waktu!');
+                tampilkanToast('⚠️ Isi nama, tanggal pembelian & masa garansi!');
                 return;
             }
 
             const endDate = new Date(purchaseDate);
             endDate.setMonth(endDate.getMonth() + months);
 
+            // Tanggal input = hari ini saat diklik simpan
+            const today = new Date();
+            const dateInput = today.toISOString().split('T')[0];
+
             const item = {
                 id: Date.now(),
                 name,
                 brand,
                 purchaseDate,
+                dateInput, // Tanggal saat data diinput di aplikasi
                 warrantyMonths: months,
                 endDate: endDate.toISOString().split('T')[0],
                 receiptNo,
-                notes,
-                createdAt: new Date().toISOString()
+                notes
             };
 
             warrantyData.unshift(item);
@@ -243,48 +239,46 @@
 
         function simpanKeStorage() {
             localStorage.setItem('warrantyData', JSON.stringify(warrantyData));
-            localStorage.setItem('reminderSettings', JSON.stringify(reminderSettings));
+            localStorage.setItem('reminderEnabled', reminderEnabled);
             localStorage.setItem('triggeredReminders', JSON.stringify(triggeredReminders));
         }
 
-        // === Cek Pengingat 3 Bulan & 1 Hari ===
+        // === LOGIKA PENGINGAT: 3 BULAN 1 HARI DARI TANGGAL INPUT ===
+        // Hanya untuk data yang masih dalam masa garansi
         function cekSemuaPengingat() {
-            if (!reminderSettings['3month'] && !reminderSettings['1day']) return;
+            if (!reminderEnabled) return;
 
             warrantyData.forEach(item => {
-                cekPengingat3Bulan(item);
-                cekPengingat1Hari(item);
+                cekPengingat3Bulan1Hari(item);
             });
             renderReminderList();
         }
 
-        function cekPengingat3Bulan(item) {
-            if (!reminderSettings['3month']) return;
-
-            const created = new Date(item.purchaseDate);
-            const today = new Date();
-            const daysSinceCreated = Math.floor((today - created) / (1000 * 60 * 60 * 24));
-            const reminderId = `3month-${item.id}`;
-
-            // Cek jika sudah 90 hari sejak dibuat & belum pernah diingatkan
-            if (daysSinceCreated >= 90 && !triggeredReminders.includes(reminderId)) {
-                kirimNotifikasi('⏰ Pengingat 3 Bulan', `"${item.name}" sudah berusia 3 bulan!`);
-                triggeredReminders.push(reminderId);
-                simpanKeStorage();
-            }
-        }
-
-        function cekPengingat1Hari(item) {
-            if (!reminderSettings['1day']) return;
-
+        function cekPengingat3Bulan1Hari(item) {
+            const inputDate = new Date(item.dateInput); // Tanggal input di aplikasi
             const end = new Date(item.endDate);
             const today = new Date();
-            const daysUntilEnd = Math.ceil((end - today) / (1000 * 60 * 60 * 24));
-            const reminderId = `1day-${item.id}`;
+            today.setHours(0, 0, 0, 0);
+            inputDate.setHours(0, 0, 0, 0);
+            end.setHours(0, 0, 0, 0);
 
-            // Cek jika tinggal 1 hari lagi & belum pernah diingatkan
-            if (daysUntilEnd <= 1 && daysUntilEnd >= 0 && !triggeredReminders.includes(reminderId)) {
-                kirimNotifikasi('⚠️ Pengingat Jatuh Tempo', `"${item.name}" akan berakhir besok!`);
+            // Hitung tanggal pengingat: 3 bulan + 1 hari setelah tanggal input
+            const reminderDate = new Date(inputDate);
+            reminderDate.setMonth(reminderDate.getMonth() + 3);
+            reminderDate.setDate(reminderDate.getDate() + 1);
+            reminderDate.setHours(0, 0, 0, 0);
+
+            const reminderId = `3m1d-${item.id}`;
+
+            // Syarat:
+            // 1. Hari ini sudah mencapai atau melewati tanggal pengingat
+            // 2. Masa garansi BELUM habis (today <= end)
+            // 3. Belum pernah diingatkan sebelumnya
+            if (today >= reminderDate && today <= end && !triggeredReminders.includes(reminderId)) {
+                kirimNotifikasi(
+                    '⏰ Waktunya Input Ulang Data!',
+                    `"${item.name}" sudah berusia 3 bulan 1 hari sejak diinput di aplikasi. Silakan input data baru/perbarui!`
+                );
                 triggeredReminders.push(reminderId);
                 simpanKeStorage();
             }
@@ -296,7 +290,7 @@
             new Notification(judul, { body: pesan, icon: '⏰' });
         }
 
-        // === Render List ===
+        // === Render Daftar Garansi ===
         function renderList() {
             const list = document.getElementById('warrantyList');
             const emptyMsg = document.getElementById('emptyMsg');
@@ -309,33 +303,34 @@
             emptyMsg.classList.add('hidden');
 
             list.innerHTML = warrantyData.map(item => {
+                const inputDate = new Date(item.dateInput);
                 const end = new Date(item.endDate);
-                const created = new Date(item.purchaseDate);
                 const today = new Date();
-                const daysLeft = Math.ceil((end - today) / (1000 * 60 * 60 * 24));
-                const daysSinceCreated = Math.floor((today - created) / (1000 * 60 * 60 * 24));
+                const daysSinceInput = Math.floor((today - inputDate) / (1000 * 60 * 60 * 24));
+                const daysUntilEnd = Math.ceil((end - today) / (1000 * 60 * 60 * 24));
+
+                // Tanggal pengingat: 3 bulan + 1 hari setelah input
+                const reminderDate = new Date(inputDate);
+                reminderDate.setMonth(reminderDate.getMonth() + 3);
+                reminderDate.setDate(reminderDate.getDate() + 1);
 
                 let status = '';
                 let statusColor = '';
                 let badges = '';
 
-                // Badge 3 Bulan
-                if (daysSinceCreated >= 90) {
-                    badges += `<span class="reminder-badge reminder-3month">≥3 Bulan</span>`;
-                }
-                // Badge 1 Hari
-                if (daysLeft <= 1 && daysLeft >= 0) {
-                    badges += `<span class="reminder-badge reminder-1day">Jatuh Tempo!</span>`;
+                // Tampilkan badge jika sudah waktunya dan garansi masih aktif
+                if (today >= reminderDate && today <= end) {
+                    badges += `<span class="reminder-badge reminder-3m1d">⏰ Waktu Input Ulang!</span>`;
                 }
 
-                if (daysLeft < 0) {
-                    status = '❌ Sudah Berakhir';
+                if (daysUntilEnd < 0) {
+                    status = '❌ Garansi Sudah Berakhir';
                     statusColor = 'var(--danger)';
-                } else if (daysLeft <= 30) {
-                    status = `⚠️ Tinggal ${daysLeft} hari`;
+                } else if (daysUntilEnd <= 30) {
+                    status = `⚠️ Tinggal ${daysUntilEnd} hari`;
                     statusColor = 'orange';
                 } else {
-                    status = `✅ Sisa ${daysLeft} hari`;
+                    status = `✅ Sisa ${daysUntilEnd} hari`;
                     statusColor = 'var(--success)';
                 }
 
@@ -344,10 +339,13 @@
                         <div style="font-weight:600; font-size:1.05rem;">${item.name} ${badges}</div>
                         <div class="muted">${item.brand || 'Tanpa keterangan'}</div>
                         <div style="font-size:0.9rem; margin-top:6px;">
-                            Dibuat: ${formatTanggal(item.purchaseDate)} · Berakhir: ${formatTanggal(item.endDate)}
+                            📅 Input: ${formatTanggal(item.dateInput)} · Beli: ${formatTanggal(item.purchaseDate)}
+                        </div>
+                        <div style="font-size:0.9rem;">
+                            ⏳ Garansi s/d: ${formatTanggal(item.endDate)}
                         </div>
                         <div style="font-size:0.9rem; color:${statusColor}; margin-top:4px;">
-                            ${status} · Berusia: ${daysSinceCreated} hari
+                            ${status} · Berusia: ${daysSinceInput} hari sejak diinput
                         </div>
                         <div style="display:flex; gap:8px; margin-top:8px;">
                             <button style="flex:1; padding:8px; font-size:0.9rem;" onclick="lihatDetail(${item.id})">Detail</button>
@@ -358,33 +356,27 @@
             }).join('');
         }
 
-        // === Render Reminder List ===
+        // === Render Daftar Pengingat Aktif ===
         function renderReminderList() {
             const list = document.getElementById('reminderList');
             const noReminder = document.getElementById('noReminder');
             const activeReminders = [];
 
             warrantyData.forEach(item => {
-                const created = new Date(item.purchaseDate);
+                const inputDate = new Date(item.dateInput);
                 const end = new Date(item.endDate);
                 const today = new Date();
-                const daysSinceCreated = Math.floor((today - created) / (1000 * 60 * 60 * 24));
-                const daysUntilEnd = Math.ceil((end - today) / (1000 * 60 * 60 * 24));
+                today.setHours(0, 0, 0, 0);
 
-                if (daysSinceCreated >= 85 && daysSinceCreated <= 95) {
+                const reminderDate = new Date(inputDate);
+                reminderDate.setMonth(reminderDate.getMonth() + 3);
+                reminderDate.setDate(reminderDate.getDate() + 1);
+                reminderDate.setHours(0, 0, 0, 0);
+
+                if (today >= reminderDate && today <= end) {
                     activeReminders.push({
                         item,
-                        type: '3month',
-                        days: daysSinceCreated,
-                        label: `Berusia ${daysSinceCreated} hari (mendekati 3 bulan)`
-                    });
-                }
-                if (daysUntilEnd >= -1 && daysUntilEnd <= 5) {
-                    activeReminders.push({
-                        item,
-                        type: '1day',
-                        days: daysUntilEnd,
-                        label: daysUntilEnd <= 0 ? 'Sudah jatuh tempo!' : `Tinggal ${daysUntilEnd} hari lagi`
+                        label: `Sudah berusia 3 bulan 1 hari sejak diinput ${formatTanggal(item.dateInput)} — Waktunya input data baru!`
                     });
                 }
             });
@@ -424,25 +416,32 @@
         function lihatDetail(id) {
             const item = warrantyData.find(i => i.id === id);
             if (!item) return;
+
+            const reminderDate = new Date(item.dateInput);
+            reminderDate.setMonth(reminderDate.getMonth() + 3);
+            reminderDate.setDate(reminderDate.getDate() + 1);
+
             alert(
                 `📦 ${item.name}\n` +
                 `${item.brand ? 'Keterangan: ' + item.brand + '\n' : ''}` +
-                `📅 Dibuat: ${formatTanggal(item.purchaseDate)}\n` +
-                `⏳ Berakhir: ${formatTanggal(item.endDate)}\n` +
+                `📅 Tanggal Input: ${formatTanggal(item.dateInput)}\n` +
+                `🛒 Tanggal Pembelian: ${formatTanggal(item.purchaseDate)}\n` +
+                `⏰ Tanggal Pengingat: ${formatTanggal(reminderDate.toISOString().split('T')[0])}\n` +
+                `⏳ Garansi Berakhir: ${formatTanggal(item.endDate)}\n` +
                 `${item.receiptNo ? '📝 Referensi: ' + item.receiptNo + '\n' : ''}` +
                 `${item.notes ? '📄 Catatan:\n' + item.notes : ''}`
             );
         }
 
         // === Pengaturan Pengingat ===
-        function toggleReminderType(type) {
-            reminderSettings[type] = !reminderSettings[type];
+        function toggleReminderSetting() {
+            reminderEnabled = !reminderEnabled;
             simpanKeStorage();
             updateToggleUI();
-            tampilkanToast(reminderSettings[type] ? '✅ Pengingat diaktifkan' : '🔕 Pengingat dinonaktifkan');
+            tampilkanToast(reminderEnabled ? '✅ Pengingat diaktifkan' : '🔕 Pengingat dinonaktifkan');
         }
 
-        // === Notifikasi ===
+        // === Notifikasi Browser ===
         function toggleNotif() {
             notifEnabled = !notifEnabled;
             localStorage.setItem('notifEnabled', notifEnabled);
@@ -466,7 +465,7 @@
             }
         }
 
-        // === Tema ===
+        // === Tema Terang/Gelap ===
         function toggleTheme() {
             isLightMode = !isLightMode;
             localStorage.setItem('lightMode', isLightMode);
@@ -478,15 +477,14 @@
             updateToggleUI();
         }
 
-        // === Toggle UI Update ===
+        // === Update Tampilan Toggle ===
         function updateToggleUI() {
             document.getElementById('notifToggle').classList.toggle('on', notifEnabled);
             document.getElementById('themeToggle').classList.toggle('on', isLightMode);
-            document.getElementById('toggle3Month').classList.toggle('on', reminderSettings['3month']);
-            document.getElementById('toggle1Day').classList.toggle('on', reminderSettings['1day']);
+            document.getElementById('toggleReminder').classList.toggle('on', reminderEnabled);
         }
 
-        // === Import Export ===
+        // === Impor/Ekspor Data ===
         function eksporData() {
             const blob = new Blob([JSON.stringify(warrantyData, null, 2)], {type:'application/json'});
             const url = URL.createObjectURL(blob);
@@ -541,13 +539,13 @@
             }
         }
 
-        // === Toast Message ===
+        // === Pesan Notifikasi Bawah ===
         function tampilkanToast(pesan) {
             const toast = document.getElementById('toast');
             toast.textContent = pesan;
             toast.classList.add('show');
             clearTimeout(window._toastTimer);
-            window._toastTimer = setTimeout(() => toast.classList.remove('show'), 4000);
+            window._toastTimer = setTimeout(() => toast.classList.remove('show'), 5000);
         }
     </script>
 </body>
