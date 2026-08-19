@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asisten Garansi Cerdas</title>
+    <style>
+        :root {
+            --bg: #202024;
+            --card: #2a2a2f;
+            --text: #e8e5df;
+            --muted: #9a978f;
+            --accent: #c47046;
+            --accent-soft: rgba(196,112,70,.18);
+            --accent2: #7ba8b8;
+            --accent2-soft: rgba(123,168,184,.18);
+            --border: rgba(232,229,223,.12);
+            --danger: #ff5252;
+            --success: #4ade80;
+            --warning: #fbbf24;
+        }
+        body.light-mode {
+            --bg: #f7f7f5;
+            --card: #ffffff;
+            --text: #1a1a1a;
+            --muted: #6b6b6b;
+            --accent: #c47046;
+            --accent-soft: rgba(196,112,70,.12);
+            --accent2: #5a8a9a;
+            --accent2-soft: rgba(90,138,154,.12);
+            --border: rgba(0,0,0,.08);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: system-ui, sans-serif; }
+        body { background: var(--bg); color: var(--text); min-height: 100vh; transition: background 0.3s, color 0.3s; }
+        .container { max-width: 480px; margin: 0 auto; padding: 20px; }
+        header { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: white; padding: 24px; border-radius: 16px; margin-bottom: 20px; text-align: center; }
+        h1 { font-size: 1.4rem; font-weight: 600; }
+        .card { background: var(--card); border-radius: 12px; padding: 20px; margin-bottom: 16px; border: 1px solid var(--border); }
+        button { background: var(--accent); color: white; border: none; padding: 12px 20px; border-radius: 8px; font-size: 1rem; cursor: pointer; width: 100%; margin-top: 8px; transition: opacity 0.2s; }
+        button:hover { opacity: 0.9; }
+        button.secondary { background: var(--accent2); }
+        button.danger { background: var(--danger); }
+        button.success { background: var(--success); color: #000; }
+        button.warning { background: var(--warning); color: #000; }
+        input, textarea, select { width: 100%; padding: 12px; margin: 8px 0; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; }
+        input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); }
+        label { display: block; margin-top: 12px; color: var(--muted); font-size: 0.9rem; }
+        .muted { color: var(--muted); font-size: 0.9rem; }
+        .tabs { display: flex; gap: 8px; margin-bottom: 16px; overflow-x: auto; padding-bottom: 4px; }
+        .tab { flex-shrink: 0; padding: 10px 16px; background: var(--card); border-radius: 8px; cursor: pointer; border: 1px solid var(--border); font-size: 0.95rem; }
+        .tab.active { background: var(--accent); color: white; border-color: var(--accent); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .item-row { display: flex; gap: 8px; align-items: center; margin: 8px 0; padding: 12px; background: var(--bg); border-radius: 8px; }
+        .item-row input { margin: 0; flex: 1; }
+        .item-row button { width: auto; padding: 10px 12px; margin: 0; }
+        .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(100px); background: var(--card); color: var(--text); padding: 14px 24px; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); border: 1px solid var(--border); opacity: 0; transition: all 0.3s; z-index: 1000; max-width: 90%; }
+        .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+        .toggle-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; }
+        .toggle { width: 48px; height: 26px; background: var(--border); border-radius: 13px; position: relative; cursor: pointer; transition: background 0.2s; }
+        .toggle.on { background: var(--accent); }
+        .toggle::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; background: white; border-radius: 50%; transition: transform 0.2s; }
+        .toggle.on::after { transform: translateX(22px); }
+        .hidden { display: none !important; }
+        .reminder-badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; margin-left: 6px; }
+        .reminder-3month { background: var(--warning); color: #000; }
+        .reminder-1day { background: var(--danger); color: white; }
+        .reminder-done { background: var(--muted); color: white; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🛡️ Asisten Garansi Cerdas</h1>
+            <p class="muted">Sistem Rekam Data & Notifikasi Pengingat</p>
+        </header>
+
+        <div class="tabs">
+            <div class="tab active" data-tab="input">Input Data</div>
+            <div class="tab" data-tab="list">Daftar Garansi</div>
+            <div class="tab" data-tab="reminders">Pengingat</div>
+            <div class="tab" data-tab="settings">Pengaturan</div>
+        </div>
+
+        <!-- Tab: Input Data -->
+        <div class="tab-content active" id="tab-input">
+            <div class="card">
+                <label>Nama Produk / Laporan</label>
+                <input type="text" id="prodName" placeholder="Contoh: Laporan Bulanan, HP, Laptop">
+
+                <label>Merek / Tipe / Keterangan</label>
+                <input type="text" id="prodBrand" placeholder="Contoh: Laporan Keuangan Agustus">
+
+                <label>Tanggal Mulai / Dibuat</label>
+                <input type="date" id="purchaseDate">
+
+                <label>Masa Garansi / Jangka Waktu (Bulan)</label>
+                <input type="number" id="warrantyMonths" placeholder="Contoh: 12" min="1">
+
+                <label>Nomor Nota / Referensi</label>
+                <input type="text" id="receiptNo" placeholder="Opsional">
+
+                <label>Catatan Tambahan</label>
+                <textarea id="notes" rows="3" placeholder="Syarat, kontak, atau catatan lain..."></textarea>
+
+                <button onclick="simpanGaransi()">✅ Simpan Data</button>
+            </div>
+        </div>
+
+        <!-- Tab: Daftar Garansi -->
+        <div class="tab-content" id="tab-list">
+            <div class="card">
+                <h3>📋 Data Tersimpan</h3>
+                <div id="warrantyList" style="margin-top:12px;"></div>
+                <p id="emptyMsg" class="muted">Belum ada data. Silakan tambahkan dulu!</p>
+            </div>
+        </div>
+
+        <!-- Tab: Pengingat -->
+        <div class="tab-content" id="tab-reminders">
+            <div class="card">
+                <h3>⏰ Status Pengingat</h3>
+                <p class="muted">Pengingat akan muncul saat data berusia: <br>• 3 Bulan (90 hari) <br>• 1 Hari sebelum jatuh tempo</p>
+                <div id="reminderList" style="margin-top:16px;"></div>
+                <p id="noReminder" class="muted">Tidak ada pengingat yang aktif saat ini.</p>
+                <button class="warning" onclick="cekSemuaPengingat()" style="margin-top:16px;">🔔 Cek Pengingat Sekarang</button>
+            </div>
+        </div>
+
+        <!-- Tab: Pengaturan -->
+        <div class="tab-content" id="tab-settings">
+            <div class="card">
+                <h3>🔔 Notifikasi Pengingat</h3>
+                <div class="toggle-row">
+                    <span>Aktifkan Notifikasi</span>
+                    <div class="toggle" id="notifToggle" onclick="toggleNotif()"></div>
+                </div>
+                <div class="toggle-row">
+                    <span>Pengingat 3 Bulan (90 Hari)</span>
+                    <div class="toggle on" id="toggle3Month" onclick="toggleReminderType('3month')"></div>
+                </div>
+                <div class="toggle-row">
+                    <span>Pengingat 1 Hari Sebelum Jatuh Tempo</span>
+                    <div class="toggle on" id="toggle1Day" onclick="toggleReminderType('1day')"></div>
+                </div>
+                <button onclick="mintaIzinNotif()" style="margin-top:12px;">Minta Izin Notifikasi</button>
+
+                <h3 style="margin-top:24px;">🎨 Tampilan</h3>
+                <div class="toggle-row">
+                    <span>Mode Terang</span>
+                    <div class="toggle" id="themeToggle" onclick="toggleTheme()"></div>
+                </div>
+
+                <h3 style="margin-top:24px;">💾 Data</h3>
+                <button class="secondary" onclick="eksporData()">📤 Ekspor Backup</button>
+                <button class="secondary" onclick="imporData()">📥 Impor Backup</button>
+                <button class="danger" onclick="hapusSemuaData()">🗑️ Hapus Semua Data</button>
+                <input type="file" id="importFile" accept=".json" style="display:none" onchange="prosesImpor(event)">
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifikasi -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // === Data Storage ===
+        let warrantyData = JSON.parse(localStorage.getItem('warrantyData')) || [];
+        let notifEnabled = localStorage.getItem('notifEnabled') === 'true';
+        let isLightMode = localStorage.getItem('lightMode') === 'true';
+        let reminderSettings = JSON.parse(localStorage.getItem('reminderSettings')) || {
+            '3month': true,
+            '1day': true
+        };
+        let triggeredReminders = JSON.parse(localStorage.getItem('triggeredReminders')) || [];
+
+        // === Init ===
+        window.onload = function() {
+            document.getElementById('purchaseDate').valueAsDate = new Date();
+            terapkanTema();
+            renderList();
+            renderReminderList();
+            updateToggleUI();
+            cekSemuaPengingat();
+        };
+
+        // === Tab Switching ===
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+            });
+        });
+
+        // === Simpan Data ===
+        function simpanGaransi() {
+            const name = document.getElementById('prodName').value.trim();
+            const brand = document.getElementById('prodBrand').value.trim();
+            const purchaseDate = document.getElementById('purchaseDate').value;
+            const months = parseInt(document.getElementById('warrantyMonths').value);
+            const receiptNo = document.getElementById('receiptNo').value.trim();
+            const notes = document.getElementById('notes').value.trim();
+
+            if (!name || !purchaseDate || !months) {
+                tampilkanToast('⚠️ Isi nama, tanggal & jangka waktu!');
+                return;
+            }
+
+            const endDate = new Date(purchaseDate);
+            endDate.setMonth(endDate.getMonth() + months);
+
+            const item = {
+                id: Date.now(),
+                name,
+                brand,
+                purchaseDate,
+                warrantyMonths: months,
+                endDate: endDate.toISOString().split('T')[0],
+                receiptNo,
+                notes,
+                createdAt: new Date().toISOString()
+            };
+
+            warrantyData.unshift(item);
+            simpanKeStorage();
+            resetForm();
+            renderList();
+            renderReminderList();
+            tampilkanToast('✅ Data berhasil disimpan!');
+            setTimeout(() => cekSemuaPengingat(), 500);
+        }
+
+        function resetForm() {
+            document.getElementById('prodName').value = '';
+            document.getElementById('prodBrand').value = '';
+            document.getElementById('purchaseDate').valueAsDate = new Date();
+            document.getElementById('warrantyMonths').value = '';
+            document.getElementById('receiptNo').value = '';
+            document.getElementById('notes').value = '';
+        }
+
+        function simpanKeStorage() {
+            localStorage.setItem('warrantyData', JSON.stringify(warrantyData));
+            localStorage.setItem('reminderSettings', JSON.stringify(reminderSettings));
+            localStorage.setItem('triggeredReminders', JSON.stringify(triggeredReminders));
+        }
+
+        // === Cek Pengingat 3 Bulan & 1 Hari ===
+        function cekSemuaPengingat() {
+            if (!reminderSettings['3month'] && !reminderSettings['1day']) return;
+
+            warrantyData.forEach(item => {
+                cekPengingat3Bulan(item);
+                cekPengingat1Hari(item);
+            });
+            renderReminderList();
+        }
+
+        function cekPengingat3Bulan(item) {
+            if (!reminderSettings['3month']) return;
+
+            const created = new Date(item.purchaseDate);
+            const today = new Date();
+            const daysSinceCreated = Math.floor((today - created) / (1000 * 60 * 60 * 24));
+            const reminderId = `3month-${item.id}`;
+
+            // Cek jika sudah 90 hari sejak dibuat & belum pernah diingatkan
+            if (daysSinceCreated >= 90 && !triggeredReminders.includes(reminderId)) {
+                kirimNotifikasi('⏰ Pengingat 3 Bulan', `"${item.name}" sudah berusia 3 bulan!`);
+                triggeredReminders.push(reminderId);
+                simpanKeStorage();
+            }
+        }
+
+        function cekPengingat1Hari(item) {
+            if (!reminderSettings['1day']) return;
+
+            const end = new Date(item.endDate);
+            const today = new Date();
+            const daysUntilEnd = Math.ceil((end - today) / (1000 * 60 * 60 * 24));
+            const reminderId = `1day-${item.id}`;
+
+            // Cek jika tinggal 1 hari lagi & belum pernah diingatkan
+            if (daysUntilEnd <= 1 && daysUntilEnd >= 0 && !triggeredReminders.includes(reminderId)) {
+                kirimNotifikasi('⚠️ Pengingat Jatuh Tempo', `"${item.name}" akan berakhir besok!`);
+                triggeredReminders.push(reminderId);
+                simpanKeStorage();
+            }
+        }
+
+        function kirimNotifikasi(judul, pesan) {
+            tampilkanToast(pesan);
+            if (!notifEnabled || Notification.permission !== 'granted') return;
+            new Notification(judul, { body: pesan, icon: '⏰' });
+        }
+
+        // === Render List ===
+        function renderList() {
+            const list = document.getElementById('warrantyList');
+            const emptyMsg = document.getElementById('emptyMsg');
+
+            if (warrantyData.length === 0) {
+                list.innerHTML = '';
+                emptyMsg.classList.remove('hidden');
+                return;
+            }
+            emptyMsg.classList.add('hidden');
+
+            list.innerHTML = warrantyData.map(item => {
+                const end = new Date(item.endDate);
+                const created = new Date(item.purchaseDate);
+                const today = new Date();
+                const daysLeft = Math.ceil((end - today) / (1000 * 60 * 60 * 24));
+                const daysSinceCreated = Math.floor((today - created) / (1000 * 60 * 60 * 24));
+
+                let status = '';
+                let statusColor = '';
+                let badges = '';
+
+                // Badge 3 Bulan
+                if (daysSinceCreated >= 90) {
+                    badges += `<span class="reminder-badge reminder-3month">≥3 Bulan</span>`;
+                }
+                // Badge 1 Hari
+                if (daysLeft <= 1 && daysLeft >= 0) {
+                    badges += `<span class="reminder-badge reminder-1day">Jatuh Tempo!</span>`;
+                }
+
+                if (daysLeft < 0) {
+                    status = '❌ Sudah Berakhir';
+                    statusColor = 'var(--danger)';
+                } else if (daysLeft <= 30) {
+                    status = `⚠️ Tinggal ${daysLeft} hari`;
+                    statusColor = 'orange';
+                } else {
+                    status = `✅ Sisa ${daysLeft} hari`;
+                    statusColor = 'var(--success)';
+                }
+
+                return `
+                    <div style="padding:12px; background:var(--bg); border-radius:8px; margin-bottom:10px; border:1px solid var(--border);">
+                        <div style="font-weight:600; font-size:1.05rem;">${item.name} ${badges}</div>
+                        <div class="muted">${item.brand || 'Tanpa keterangan'}</div>
+                        <div style="font-size:0.9rem; margin-top:6px;">
+                            Dibuat: ${formatTanggal(item.purchaseDate)} · Berakhir: ${formatTanggal(item.endDate)}
+                        </div>
+                        <div style="font-size:0.9rem; color:${statusColor}; margin-top:4px;">
+                            ${status} · Berusia: ${daysSinceCreated} hari
+                        </div>
+                        <div style="display:flex; gap:8px; margin-top:8px;">
+                            <button style="flex:1; padding:8px; font-size:0.9rem;" onclick="lihatDetail(${item.id})">Detail</button>
+                            <button style="width:auto; padding:8px 12px; font-size:0.9rem; background:var(--danger);" onclick="hapusItem(${item.id})">✕</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // === Render Reminder List ===
+        function renderReminderList() {
+            const list = document.getElementById('reminderList');
+            const noReminder = document.getElementById('noReminder');
+            const activeReminders = [];
+
+            warrantyData.forEach(item => {
+                const created = new Date(item.purchaseDate);
+                const end = new Date(item.endDate);
+                const today = new Date();
+                const daysSinceCreated = Math.floor((today - created) / (1000 * 60 * 60 * 24));
+                const daysUntilEnd = Math.ceil((end - today) / (1000 * 60 * 60 * 24));
+
+                if (daysSinceCreated >= 85 && daysSinceCreated <= 95) {
+                    activeReminders.push({
+                        item,
+                        type: '3month',
+                        days: daysSinceCreated,
+                        label: `Berusia ${daysSinceCreated} hari (mendekati 3 bulan)`
+                    });
+                }
+                if (daysUntilEnd >= -1 && daysUntilEnd <= 5) {
+                    activeReminders.push({
+                        item,
+                        type: '1day',
+                        days: daysUntilEnd,
+                        label: daysUntilEnd <= 0 ? 'Sudah jatuh tempo!' : `Tinggal ${daysUntilEnd} hari lagi`
+                    });
+                }
+            });
+
+            if (activeReminders.length === 0) {
+                list.innerHTML = '';
+                noReminder.classList.remove('hidden');
+                return;
+            }
+            noReminder.classList.add('hidden');
+
+            list.innerHTML = activeReminders.map(r => `
+                <div style="padding:12px; background:var(--bg); border-radius:8px; margin-bottom:8px; border:1px solid var(--border);">
+                    <div style="font-weight:500;">${r.item.name}</div>
+                    <div class="muted" style="font-size:0.9rem;">${r.label}</div>
+                </div>
+            `).join('');
+        }
+
+        function formatTanggal(str) {
+            if (!str) return '-';
+            const d = new Date(str);
+            return d.toLocaleDateString('id-ID', {day:'2-digit', month:'short', year:'numeric'});
+        }
+
+        function hapusItem(id) {
+            if (confirm('Yakin ingin menghapus data ini?')) {
+                warrantyData = warrantyData.filter(i => i.id !== id);
+                triggeredReminders = triggeredReminders.filter(r => !r.includes(`-${id}`));
+                simpanKeStorage();
+                renderList();
+                renderReminderList();
+                tampilkanToast('🗑️ Data dihapus');
+            }
+        }
+
+        function lihatDetail(id) {
+            const item = warrantyData.find(i => i.id === id);
+            if (!item) return;
+            alert(
+                `📦 ${item.name}\n` +
+                `${item.brand ? 'Keterangan: ' + item.brand + '\n' : ''}` +
+                `📅 Dibuat: ${formatTanggal(item.purchaseDate)}\n` +
+                `⏳ Berakhir: ${formatTanggal(item.endDate)}\n` +
+                `${item.receiptNo ? '📝 Referensi: ' + item.receiptNo + '\n' : ''}` +
+                `${item.notes ? '📄 Catatan:\n' + item.notes : ''}`
+            );
+        }
+
+        // === Pengaturan Pengingat ===
+        function toggleReminderType(type) {
+            reminderSettings[type] = !reminderSettings[type];
+            simpanKeStorage();
+            updateToggleUI();
+            tampilkanToast(reminderSettings[type] ? '✅ Pengingat diaktifkan' : '🔕 Pengingat dinonaktifkan');
+        }
+
+        // === Notifikasi ===
+        function toggleNotif() {
+            notifEnabled = !notifEnabled;
+            localStorage.setItem('notifEnabled', notifEnabled);
+            updateToggleUI();
+            if (notifEnabled) mintaIzinNotif();
+        }
+
+        async function mintaIzinNotif() {
+            if (!('Notification' in window)) {
+                tampilkanToast('⚠️ Browser tidak mendukung notifikasi');
+                return;
+            }
+            const perm = await Notification.requestPermission();
+            if (perm === 'granted') {
+                tampilkanToast('✅ Notifikasi diaktifkan!');
+                notifEnabled = true;
+                localStorage.setItem('notifEnabled', 'true');
+                updateToggleUI();
+            } else {
+                tampilkanToast('🔕 Izin notifikasi ditolak');
+            }
+        }
+
+        // === Tema ===
+        function toggleTheme() {
+            isLightMode = !isLightMode;
+            localStorage.setItem('lightMode', isLightMode);
+            terapkanTema();
+        }
+
+        function terapkanTema() {
+            document.body.classList.toggle('light-mode', isLightMode);
+            updateToggleUI();
+        }
+
+        // === Toggle UI Update ===
+        function updateToggleUI() {
+            document.getElementById('notifToggle').classList.toggle('on', notifEnabled);
+            document.getElementById('themeToggle').classList.toggle('on', isLightMode);
+            document.getElementById('toggle3Month').classList.toggle('on', reminderSettings['3month']);
+            document.getElementById('toggle1Day').classList.toggle('on', reminderSettings['1day']);
+        }
+
+        // === Import Export ===
+        function eksporData() {
+            const blob = new Blob([JSON.stringify(warrantyData, null, 2)], {type:'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `backup-garansi-${new Date().toISOString().slice(0,10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            tampilkanToast('✅ Data diekspor!');
+        }
+
+        function imporData() {
+            document.getElementById('importFile').click();
+        }
+
+        function prosesImpor(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                try {
+                    const data = JSON.parse(ev.target.result);
+                    if (!Array.isArray(data)) throw new Error('Format salah');
+                    if (confirm(`Ada ${data.length} data. Gabungkan atau timpa? OK=Gabung, Batal=Timpa`)) {
+                        warrantyData = [...data, ...warrantyData];
+                    } else {
+                        if (confirm('Yakin menimpa data lama?')) {
+                            warrantyData = data;
+                            triggeredReminders = [];
+                        } else { return; }
+                    }
+                    simpanKeStorage();
+                    renderList();
+                    renderReminderList();
+                    tampilkanToast('✅ Data berhasil diimpor!');
+                } catch (err) {
+                    tampilkanToast('❌ File tidak valid');
+                }
+            };
+            reader.readAsText(file);
+            e.target.value = '';
+        }
+
+        function hapusSemuaData() {
+            if (confirm('⚠️ Yakin menghapus SEMUA data? Tindakan ini tidak bisa dibatalkan!')) {
+                warrantyData = [];
+                triggeredReminders = [];
+                simpanKeStorage();
+                renderList();
+                renderReminderList();
+                tampilkanToast('🗑️ Semua data dihapus');
+            }
+        }
+
+        // === Toast Message ===
+        function tampilkanToast(pesan) {
+            const toast = document.getElementById('toast');
+            toast.textContent = pesan;
+            toast.classList.add('show');
+            clearTimeout(window._toastTimer);
+            window._toastTimer = setTimeout(() => toast.classList.remove('show'), 4000);
+        }
+    </script>
+</body>
+</html>
